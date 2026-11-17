@@ -1,5 +1,5 @@
 import { MODULE_BY_KEY } from '@/data/modules'
-import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { allRows, listRows, readDomainBundle, resetRows, saveRows } from '@/data/local-store'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
@@ -86,7 +86,25 @@ export function downloadEntries(key: string): void {
 
 export function loadOverview(): OverviewResult {
   const rows = allRows()
+  const domain = readDomainBundle()
   const modules = [...MODULE_BY_KEY.values()].map((meta) => {
+    if (meta.key === 'siteAdmission') {
+      const current = domain.admissions.filter((r) => r.isCurrent)
+      return {
+        name: meta.name,
+        created: current.length,
+        pending: current.filter((r) => r.state === 'reconfirm-pending').length,
+        abnormal: current.filter((r) => r.state === 'rejected' || r.state === 'merged').length,
+      }
+    }
+    if (meta.key === 'ownerRegistry') {
+      return {
+        name: meta.name,
+        created: domain.owners.length,
+        pending: domain.owners.filter((o) => o.ownerStatus === '停用').length,
+        abnormal: domain.accessDenials.length,
+      }
+    }
     const entries = rows[meta.key] ?? []
     return {
       name: meta.name,

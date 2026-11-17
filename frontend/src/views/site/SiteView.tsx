@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { readBundle, runBatchVerify } from '@/api/admission-service'
+import { ADMISSION_STATE_LABEL, type AdmissionRecord } from '@/domain/types'
 import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
-import type { EntryRow } from '@/data/types'
+import type { ActionResult, EntryRow } from '@/data/types'
+import { useAdminSession } from '@/stores/session'
 
 const meta = moduleMeta('site')
 const columns = [
@@ -25,63 +28,75 @@ const statuses = [
   "已激活",
   "已暂停"
 ]
-const stats = [
-  {
-    "label": "采集站点总数",
-    "value": 0
-  },
-  {
-    "label": "已激活站点",
-    "value": 0
-  },
-  {
-    "label": "待校验站点",
-    "value": 0
-  }
-]
 
 export default function SiteView() {
+  const session = useAdminSession()
   const [rows, setRows] = useState<EntryRow[]>([])
   const [total, setTotal] = useState(0)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [notice, setNotice] = useState<ActionResult | null>(null)
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [tick, setTick] = useState(0)
   const filterFields = useMemo(() => columns.slice(0, 3), [])
 
   const reload = useCallback(() => {
-    setErrorMessage('')
+    setNotice(null)
     try {
       const payload = listEntries(meta.key, filters)
       setRows(payload.items)
       setTotal(payload.total)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : '站点登记列表读取失败')
+      setNotice({ ok: false, message: error instanceof Error ? error.message : '站点登记列表读取失败' })
     }
   }, [filters])
 
   useEffect(() => {
     reload()
-  }, [reload])
+  }, [reload, tick])
 
-  function runAction(action: string, row: EntryRow) {
-    setErrorMessage('')
+  // 准入数据集当前版本：与站点登记按站点编号关联展示核验结局
+  const admissions = useMemo(() => {
+    return readBundle().admissions
+      .filter((r) => r.isCurrent)
+      .reduce<Map<string, AdmissionRecord>>((map, r) => {
+        map.set(r.siteCode, r)
+        return map
+      }, new Map())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick])
+
+  const stats = useMemo(() => [
+    { label: '采集站点总数', value: rows.length },
+    { label: '已激活站点', value: rows.filter((r) => r.status === '已激活').length },
+    { label: '待校验站点', value: rows.filter((r) => r.status === '待校验').length },
+  ], [rows])
+
+  function runRowAction(action: string, row: EntryRow) {
     const result = applyAction(meta.key, Number(row.id), action)
-    if (!result.ok) {
-      setErrorMessage(result.message)
-      return
-    }
-    reload()
+    setNotice(result)
+    if (result.ok) setTick((n) => n + 1)
   }
+
+  function verify(codes?: string[]) {
+    setNotice(runBatchVerify(codes))
+    setTick((n) => n + 1)
+  }
+
+  const pendingRows = rows.filter((r) => r.status === '待校验')
 
   return (
     <section className="page" data-module="site">
       <header className="page-head">
         <div>
           <h2>站点登记管理</h2>
-          <p className="page-desc">维护采集站点的输入、执行约束与结果记录，为站点登记提供可验证的数据工程流程。</p>
+          <p className="page-desc">
+            站点登记为主对象，采集站点与站点编号是同一记录的业务依据；通过域名加工进入采集站点准入数据集，
+            站点编号保留查询入口。当前身份：{session.displayName}
+            {session.role === 'owner' && '（仅可核验受控归属站点）'}
+          </p>
         </div>
         <div className="page-actions">
-          <button className="btn primary" type="button" onClick={() => setErrorMessage('采集站点登记入口尚未接入审批流')}>
-            登记采集站点
+          <button className="btn primary" type="button" onClick={() => verify()}>
+            批量激活核验（{pendingRows.length} 个待校验）
           </button>
           <button className="btn" type="button" onClick={() => downloadEntries(meta.key)}>
             导出站点登记清单
@@ -106,6 +121,10 @@ export default function SiteView() {
         ))}
       </p>
 
+      {notice && (
+        <p className={`notice ${notice.ok ? 'notice-ok' : 'notice-bad'}`}>{notice.message}</p>
+      )}
+
       <form className="filter-bar" onSubmit={(event) => { event.preventDefault(); reload() }}>
         {filterFields.map((field) => (
           <label key={field} className="filter-item">
@@ -126,34 +145,63 @@ export default function SiteView() {
           <tr>
             {columns.map((column) => <th key={column}>{column}</th>)}
             <th>当前状态</th>
+            <th>核验结局（准入数据集）</th>
             <th>可执行动作</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={String(row.id)}>
-              {columns.map((column) => <td key={column}>{row[column] ?? '—'}</td>)}
-              <td>{row.status}</td>
-              <td className="row-actions">
-                {actions.map((action) => (
-                  <button key={action} className="link" type="button" onClick={() => runAction(action, row)}>
-                    {action}
-                  </button>
-                ))}
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const code = String(row['站点编号'] ?? '')
+            const admission = admissions.get(code)
+            return (
+              <tr key={String(row.id)}>
+                {columns.map((column) => <td key={column}>{row[column] ?? '—'}</td>)}
+                <td>{row.status}</td>
+                <td>
+                  {admission ? (
+                    <>
+                      <span className={`badge ${admission.state === 'admitted' ? 'badge-ok' : admission.state === 'reconfirm-pending' ? 'badge-wait' : 'badge-warn'}`}>
+                        {ADMISSION_STATE_LABEL[admission.state]}
+                      </span>
+                      <span className="cell-sub"> v{admission.version} · {admission.basis}</span>
+                      {(admission.state === 'rejected' || admission.state === 'merged') && (
+                        <>
+                          <br />
+                          <span className="text-bad" title={admission.rejectionTraces.map((t) => `${t.at} ${t.reason}`).join('\n')}>
+                            {admission.rejectionReason}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <span className="cell-sub">未进入核验</span>
+                  )}
+                </td>
+                <td className="row-actions">
+                  {actions.map((action) => (
+                    <button key={action} className="link" type="button" onClick={() => runRowAction(action, row)}>
+                      {action}
+                    </button>
+                  ))}
+                  {row.status === '待校验' && (
+                    <button className="link" type="button" onClick={() => verify([code])}>
+                      激活核验
+                    </button>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
           {rows.length === 0 && (
             <tr>
-              <td className="empty-state" colSpan={columns.length + 2}>暂无站点登记数据，可先登记采集站点</td>
+              <td className="empty-state" colSpan={columns.length + 3}>暂无站点登记数据</td>
             </tr>
           )}
         </tbody>
       </table>
 
       <footer className="page-foot">
-        <span>共 {total} 条站点登记记录</span>
-        {errorMessage && <span className="error-text">{errorMessage}</span>}
+        <span>共 {total} 条站点登记记录；核验通过才会激活，未通过退回待校验且拒绝原因留存在准入数据集</span>
       </footer>
     </section>
   )

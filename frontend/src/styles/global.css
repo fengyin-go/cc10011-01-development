@@ -35,3 +35,37 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .error-text { color: #b42318; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
 .legend-item { background: #eef2f7; border-radius: 999px; padding: 2px 10px; }
+
+/* 激活核验域新增样式 */
+.role-switch { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.role-switch select { border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.notice { border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 8px 0; }
+.notice-ok { background: #ecfdf3; border: 1px solid #abefc6; color: #067647; }
+.notice-bad { background: #fef3f2; border: 1px solid #fda29b; color: #b42318; }
+.notice-warn { background: #fffaeb; border: 1px solid #fedf89; color: #b54708; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; border-bottom: 1px solid var(--border); }
+.tab { border: 1px solid transparent; border-bottom: none; background: #eef2f7; border-radius: 8px 8px 0 0; padding: 8px 14px; cursor: pointer; font-size: 13px; color: var(--muted); }
+.tab-active { background: #fff; border-color: var(--border); color: var(--brand); font-weight: 600; }
+.tab-count { display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 11px; text-align: center; }
+.tab-count-warn { background: #dc6803; }
+.badge { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; white-space: nowrap; }
+.badge-inline { margin-left: 6px; }
+.badge-ok { background: #ecfdf3; color: #067647; border: 1px solid #abefc6; }
+.badge-bad { background: #fef3f2; color: #b42318; border: 1px solid #fda29b; }
+.badge-warn { background: #fffaeb; color: #b54708; border: 1px solid #fedf89; }
+.badge-wait { background: #eff4ff; color: #1d4ed8; border: 1px solid #b2ccff; }
+.cell-sub { color: var(--muted); font-size: 12px; }
+.cell-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-line; max-width: 220px; }
+.text-bad { color: #b42318; }
+.panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+.panel h3 { margin: 0 0 8px; font-size: 14px; }
+.filter-check { display: flex; align-items: center; gap: 6px; }
+.filter-check input { margin: 0; }
+.inner-table { margin: 8px 0; }
+.row-detail > td { background: #f8fafc; padding: 10px 14px; }
+.trace-box { background: #fff; border: 1px dashed #fda29b; border-radius: 6px; padding: 8px 12px; margin-top: 8px; font-size: 12px; }
+.trace-box ul { margin: 6px 0 0; padding-left: 18px; }
+.trace-box li { margin-bottom: 4px; color: #b42318; }
+.row-denial { background: #fff7f6; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+select { font-family: inherit; }

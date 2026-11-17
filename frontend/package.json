@@ -8,7 +8,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:domain": "node --test --experimental-strip-types tests/engine.test.ts",
+    "test:service": "node tests/run-esbuild.mjs tests/admission-service.test.ts",
+    "test": "npm run test:domain && npm run test:service"
   },
   "dependencies": {
     "react": "^18.3.1",

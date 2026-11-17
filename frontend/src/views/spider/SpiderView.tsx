@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { listCandidateSites } from '@/api/admission-service'
 import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
 
@@ -64,6 +65,9 @@ export default function SpiderView() {
     reload()
   }, [reload])
 
+  // 任务编排获得可执行的站点底表：仅已准入站点可作为目标站点
+  const candidateSites = useMemo(() => listCandidateSites(), [])
+
   function runAction(action: string, row: EntryRow) {
     setErrorMessage('')
     const result = applyAction(meta.key, Number(row.id), action)
@@ -98,6 +102,32 @@ export default function SpiderView() {
             <strong className="stat-value">{item.value}</strong>
           </article>
         ))}
+      </div>
+
+      <div className="panel">
+        <h3>可执行站点底表（只读，来自采集站点准入数据集）</h3>
+        <p className="page-desc">任务编排只能引用已准入的当前版本；被拒绝、归并或等待重新确认的站点不会出现在目标站点候选中。</p>
+        <table className="data-table">
+          <thead>
+            <tr><th>站点编号</th><th>规范域名</th><th>请求方式</th><th>字符编码</th><th>准入版本</th><th>激活依据</th><th>站点负责人</th></tr>
+          </thead>
+          <tbody>
+            {candidateSites.map((r) => (
+              <tr key={r.id}>
+                <td>{r.siteCode}</td>
+                <td>{r.canonicalDomain}</td>
+                <td>{r.requestMethod}</td>
+                <td>{r.encoding}</td>
+                <td>v{r.version}</td>
+                <td className="cell-sub">{r.basis}</td>
+                <td>{r.currentOwner}（当前{r.currentOwnerStatus}）</td>
+              </tr>
+            ))}
+            {candidateSites.length === 0 && (
+              <tr><td className="empty-state" colSpan={7}>暂无可执行站点，请先完成站点激活核验</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <p className="status-legend">
